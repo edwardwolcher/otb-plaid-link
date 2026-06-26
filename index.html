@@ -27,7 +27,7 @@
   <div id="result" style="display:none">
     <p><strong>✅ Connected.</strong> Copy this <code>public_token</code> and paste it back in chat:</p>
     <textarea id="token" readonly></textarea>
-    <p class="muted">Item: <code id="itemname"></code> · token is single-use and expires in ~30 min.</p>
+    <p class="muted">Item: <code id="itemname"></code> · This is a one-time <em>handoff</em> token (~30&nbsp;min). The saved bank connection itself is long-lived — you won't need this page again unless a re-link is required.</p>
     <button onclick="navigator.clipboard.writeText(document.getElementById('token').value)">Copy token</button>
   </div>
 
