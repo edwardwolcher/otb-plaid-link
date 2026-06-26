@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OTB Bank Feed — Plaid Link</title>
+  <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"></script>
+  <style>
+    body { font: 16px/1.5 -apple-system, system-ui, sans-serif; max-width: 640px;
+           margin: 8vh auto; padding: 0 24px; color: #1a1a1a; }
+    h1 { font-size: 20px; } code, textarea { font-family: ui-monospace, Menlo, monospace; }
+    #status { padding: 14px 16px; border-radius: 10px; background: #f3f4f6; margin: 16px 0; }
+    .ok { background: #e7f7ed !important; }
+    .err { background: #fdecec !important; }
+    textarea { width: 100%; height: 90px; padding: 10px; border: 1px solid #ccc;
+               border-radius: 8px; box-sizing: border-box; }
+    button { font-size: 15px; padding: 10px 18px; border: 0; border-radius: 8px;
+             background: #111; color: #fff; cursor: pointer; margin-top: 8px; }
+    .muted { color: #666; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <h1>OTB Bank Feed — connect an account</h1>
+  <p class="muted">Internal one-time tool for On the Boards bookkeeping. Opens Plaid Link,
+  handles the bank's OAuth redirect, and returns a one-time <code>public_token</code> to paste back.</p>
+  <div id="status">Initializing…</div>
+  <div id="result" style="display:none">
+    <p><strong>✅ Connected.</strong> Copy this <code>public_token</code> and paste it back in chat:</p>
+    <textarea id="token" readonly></textarea>
+    <p class="muted">Item: <code id="itemname"></code> · token is single-use and expires in ~30 min.</p>
+    <button onclick="navigator.clipboard.writeText(document.getElementById('token').value)">Copy token</button>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const setStatus = (msg, cls) => { const s = $("status"); s.textContent = msg; if (cls) s.className = cls; };
+    const params = new URLSearchParams(location.search);
+
+    // link_token arrives as a query param on first open; persist it so it survives the OAuth round-trip.
+    let linkToken = params.get("link_token");
+    if (linkToken) localStorage.setItem("otb_plaid_link_token", linkToken);
+    else linkToken = localStorage.getItem("otb_plaid_link_token");
+
+    let itemName = params.get("name");
+    if (itemName) localStorage.setItem("otb_plaid_name", itemName);
+    else itemName = localStorage.getItem("otb_plaid_name") || "(unnamed)";
+
+    const isOAuthReturn = params.has("oauth_state_id");
+
+    if (!linkToken) {
+      setStatus("No link_token found. Re-open the URL I generated (it includes ?link_token=…).", "err");
+    } else {
+      const handler = Plaid.create({
+        token: linkToken,
+        // On the OAuth return leg, hand Plaid the full current URL so it can resume the session.
+        receivedRedirectUri: isOAuthReturn ? window.location.href : undefined,
+        onLoad: () => setStatus("Opening Plaid Link…"),
+        onSuccess: (public_token) => {
+          $("status").style.display = "none";
+          $("result").style.display = "block";
+          $("token").value = public_token;
+          $("itemname").textContent = itemName;
+          localStorage.removeItem("otb_plaid_link_token");
+          localStorage.removeItem("otb_plaid_name");
+        },
+        onExit: (err) => {
+          setStatus(err ? ("Exited: " + (err.error_code || "") + " " + (err.error_message || ""))
+                        : "You exited before finishing. Reload to retry.", "err");
+        },
+      });
+      handler.open();
+    }
+  </script>
+</body>
+</html>
